@@ -226,21 +226,21 @@ uv run python scripts/evaluate_scholarqa_cs.py `
 
 #### openscholar-cs数据集指标对比
 
-| 指标组         | 指标                      | without_loop | with_loop |
-| -------------- | ------------------------- | -----------: | --------: |
-| 运行成本       | total_tokens              |         195k |      400k |
-| 运行成本       | cost                      |    约 2.5 元 | 约 4.0 元 |
-| 检索/阅读      | read_results.paper_count  |            8 |      8-10 |
-| 检索/阅读      | read_relevance.mean_score |         3.75 |      20.0 |
-| 自检修复       | correction_success        |        false |      true |
-| 自检修复       | repair_attempt_count      |            0 |         1 |
-| LLM judge 评分 | weighted_correctness      |         0.10 |      0.76 |
-| LLM judge 评分 | expert_ingredients_score  |         0.15 |      0.62 |
-| LLM judge 评分 | general_criteria_score    |         0.05 |      0.52 |
-| LLM judge 评分 | citation_f1               |         0.15 |      0.59 |
-| LLM judge 评分 | coverage                  |            1 |         4 |
-| LLM judge 评分 | relevance                 |            1 |         4 |
-| LLM judge 评分 | organization              |            2 |         3 |
+| 指标组         | 指标                         | baseline(OpenScholar-GPT-4o) | without_loop | with_loop |
+| -------------- | ---------------------------- | ----------------------------: | -----------: | -----------------: |
+| 运行成本       | total_tokens                 |                             - |         195k |               400k |
+| 运行成本       | cost                         |                    约 $0.05/题 |    约 2.5 元/题 |           约 4.0 元/题 |
+| 检索/阅读      | read_results.paper_count     |                             - |            8 |               8-10 |
+| 检索/阅读      | read_relevance.mean_score    |                             - |         3.75 |               20.0 |
+| 自检修复       | correction_success           |                             - |        false |               true |
+| 自检修复       | repair_attempt_count         |                             - |            0 |                  1 |
+| LLM judge 评分 | weighted_correctness / CS Rub. |                         0.577 |         0.10 |               0.63 |
+| LLM judge 评分 | expert_ingredients_score     |                             - |         0.15 |               0.62 |
+| LLM judge 评分 | general_criteria_score       |                             - |         0.05 |               0.52 |
+| LLM judge 评分 | citation_f1 / CS Cite        |                         0.395 |         0.15 |               0.55 |
+| LLM judge 评分 | coverage                     |                             - |            1 |                  4 |
+| LLM judge 评分 | relevance                    |                             - |            1 |                  4 |
+| LLM judge 评分 | organization / CS LLM        |                          4.51 |            2 |                  3 |
 
 ## 模型配置
 
