@@ -33,8 +33,10 @@
 
 ReviewCraft 是一个面向文献综述场景的本地科研 Agent 系统。它把一次调研拆成清晰流程：生成检索计划，多来源检索论文，筛选摘要与全文，提取关键证据，组织大纲，最后按证据和用户风格写作。
 
-当前版本重点强化三项能力：
+## 核心内容：
 
+- **多智能体调研流程**：`SearchAgent` 生成检索计划，`ReadAgent` 精读论文，`AnalyseAgent` 汇总研究现状，`WritingOutlineAgent` 组织大纲，`WritingAgent` 按证据写作。
+- **多来源论文检索**：支持 arXiv、OpenAlex、Semantic Scholar，并统一为 `PaperDocument` 进入排序、去重、阅读和引用检查流程。
 - **Self-RELOOP 检索修正**：第一次 retrieval 判 FAIL 时，根据失败原因改写 query 并重新检索。
 - **OpenScholar 风格评估**：用 rubric correctness、citation precision/F1、coverage、relevance、organization 和 cost 衡量综述质量。
 - **长期记忆与上下文压缩**：跨 session 记住用户写作规则和对话规范，同时压缩论文 JSON 字段，降低长上下文与 API 503 风险。
@@ -44,17 +46,6 @@ ReviewCraft 是一个面向文献综述场景的本地科研 Agent 系统。它�
   <br>
   <em>图 2：任务结束后仍可查看检索、阅读、分析、写作和 token 使用情况。</em>
 </p>
-
-## 核心特色
-
-| 能力 | 说明 |
-| --- | --- |
-| 多智能体调研流程 | `SearchAgent` 生成检索计划，`ReadAgent` 精读论文，`AnalyseAgent` 汇总研究现状，`WritingOutlineAgent` 组织大纲，`WritingAgent` 按证据写作。 |
-| 多来源论文检索 | 支持 arXiv、OpenAlex、Semantic Scholar，并统一为 `PaperDocument` 进入排序、去重、阅读和引用检查流程。 |
-| Self-RELOOP | 记录首轮检索失败原因，例如结果太少、主题偏移或证据不足；改写 query 后再次检索，并用修正成功率和相关性增益评估效果。 |
-| 长期记忆 | `src/services/memory.py` 以轻量规则保存用户偏好、对话规则、风格规范和最近任务摘要。 |
-| 上下文压缩 | 只把当前请求、写作规则、关键证据和短摘要交给后续 Agent，避免把全文片段和重复 JSON 全塞进上下文。 |
-| 前后端工作台 | FastAPI 提供 REST/SSE，本地 Vue 工作台展示会话、运行进度、产物和系统配置。 |
 
 ## 评估指标
 
