@@ -14,64 +14,6 @@
 
 </div>
 
-## ScholarQA-CS 评估
-
-### 评估 Paper Agent
-
-`--variants` 控制是否启用检索自我检查：`without_loop` 不启用，`with_loop` 启用。
-
-```powershell
-uv run python scripts/evaluate_scholarqa_cs.py `
-  --limit 3 `
-  --variants with_loop `
-  --sources openalex arxiv `
-  --max-results 8 `
-  --deep-read-limit 5 `
-  --save-state `
-  --agent-timeout-seconds 3600 `
-  --agent-provider-timeout-seconds 300 `
-  --agent-provider-max-retries 2 `
-  --judge-provider deepseek `
-  --judge-api-base https://api.deepseek.com `
-  --judge-model deepseek-v4-pro `
-  --judge-timeout-seconds 600 `
-  --judge-max-retries 3 `
-  --judge-answer-char-limit 16000 `
-  --judge-evidence-char-limit 10000 `
-  --judge-max-tokens 2048
-```
-
-### 只重跑 Markdown 指标评估
-
-用于跳过 agent，只对已经生成的 Markdown 文献综述重新执行 LLM judge。
-
-```powershell
-.\.venv\Scripts\python.exe scripts\evaluate_scholarqa_cs.py `
-  --case-id d44280651a6fb71d56ee96834e180fa6 `
-  --variants without_loop `
-  --run-dir data\evaluation\scholarqa_cs\XXX `
-  --eval-only-state data\evaluation\scholarqa_cs\XXX\states\*__without_loop.json `
-  --eval-only-answer data\evaluation\scholarqa_cs\XXX\answers\*__without_loop.md
-```
-
-### 初步指标预估
-
-| 指标组 | 指标 | without_loop | with_loop |
-|---|---|---:|---:|
-| 运行成本 | total_tokens | 195k | 400k |
-| 运行成本 | cost | 约 2.5 元 | 约 4.0 元 |
-| 检索/阅读 | read_results.paper_count | 8 | 8-10 |
-| 检索/阅读 | read_relevance.mean_score | 3.75 | 20.0 |
-| 自检修复 | correction_success | false | true |
-| 自检修复 | repair_attempt_count | 0 | 1 |
-| LLM judge 评分 | weighted_correctness | 0.10 | 0.76 |
-| LLM judge 评分 | expert_ingredients_score | 0.15 | 0.62 |
-| LLM judge 评分 | general_criteria_score | 0.05 | 0.52 |
-| LLM judge 评分 | citation_f1 | 0.15 | 0.59 |
-| LLM judge 评分 | coverage | 1 | 4 |
-| LLM judge 评分 | relevance | 1 | 4 |
-| LLM judge 评分 | organization | 2 | 3 |
-
 <p align="center">
   <img src="assets/readme/workspace-home.png" alt="ReviewCraft 会话工作台首页" width="100%">
   <br>
@@ -243,6 +185,62 @@ npm run front:dev
 ```
 
 打开 <http://127.0.0.1:5173/>，先进入「系统配置」测试模型，再回到会话工作台创建调研任务。
+
+### 4. 评估 Paper Agent
+
+`--variants` 控制是否启用检索自我检查：`without_loop` 不启用，`with_loop` 启用。
+
+```powershell
+uv run python scripts/evaluate_scholarqa_cs.py `
+  --limit 3 `
+  --variants with_loop `
+  --sources openalex arxiv `
+  --max-results 8 `
+  --deep-read-limit 5 `
+  --save-state `
+  --agent-timeout-seconds 3600 `
+  --agent-provider-timeout-seconds 300 `
+  --agent-provider-max-retries 2 `
+  --judge-provider deepseek `
+  --judge-api-base https://api.deepseek.com `
+  --judge-model deepseek-v4-pro `
+  --judge-timeout-seconds 600 `
+  --judge-max-retries 3 `
+  --judge-answer-char-limit 16000 `
+  --judge-evidence-char-limit 10000 `
+  --judge-max-tokens 2048
+```
+
+####  只重跑 Markdown 指标评估
+
+用于跳过 agent，只对已经生成的 Markdown 文献综述重新执行 LLM judge。
+
+```powershell
+.\.venv\Scripts\python.exe scripts\evaluate_scholarqa_cs.py `
+  --case-id d44280651a6fb71d56ee96834e180fa6 `
+  --variants without_loop `
+  --run-dir data\evaluation\scholarqa_cs\XXX `
+  --eval-only-state data\evaluation\scholarqa_cs\XXX\states\*__without_loop.json `
+  --eval-only-answer data\evaluation\scholarqa_cs\XXX\answers\*__without_loop.md
+```
+
+#### openscholar-cs数据集指标对比
+
+| 指标组         | 指标                      | without_loop | with_loop |
+| -------------- | ------------------------- | -----------: | --------: |
+| 运行成本       | total_tokens              |         195k |      400k |
+| 运行成本       | cost                      |    约 2.5 元 | 约 4.0 元 |
+| 检索/阅读      | read_results.paper_count  |            8 |      8-10 |
+| 检索/阅读      | read_relevance.mean_score |         3.75 |      20.0 |
+| 自检修复       | correction_success        |        false |      true |
+| 自检修复       | repair_attempt_count      |            0 |         1 |
+| LLM judge 评分 | weighted_correctness      |         0.10 |      0.76 |
+| LLM judge 评分 | expert_ingredients_score  |         0.15 |      0.62 |
+| LLM judge 评分 | general_criteria_score    |         0.05 |      0.52 |
+| LLM judge 评分 | citation_f1               |         0.15 |      0.59 |
+| LLM judge 评分 | coverage                  |            1 |         4 |
+| LLM judge 评分 | relevance                 |            1 |         4 |
+| LLM judge 评分 | organization              |            2 |         3 |
 
 ## 模型配置
 
