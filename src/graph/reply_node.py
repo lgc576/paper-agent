@@ -135,8 +135,12 @@ def run_compose_reply_node():
             request=state["request"],
             search_results=papers,
             search_scores=list(state.get("search_scores") or []),
+            search_intent=dict(state.get("search_intent") or {}),
+            search_intent_override=dict(state.get("search_intent_override") or {}),
             search_summary=summary,
             search_artifact_refs=artifact_refs,
+            retrieval_correction=dict(state.get("retrieval_correction") or {}),
+            retrieval_correction_route=str(state.get("retrieval_correction_route") or ""),
             read_results=read_results,
             read_summary=read_summary,
             read_artifact_refs=read_artifact_refs,
@@ -157,6 +161,7 @@ def run_compose_reply_node():
             turn_id=state.get("turn_id"),
             search_node_service=state.get("search_node_service"),
             search_node_llm=state.get("search_node_llm"),
+            retrieval_correction_node_llm=state.get("retrieval_correction_node_llm"),
             read_node_llm=state.get("read_node_llm"),
             analysis_node_llm=state.get("analysis_node_llm"),
             writing_outline_node_llm=state.get("writing_outline_node_llm"),
@@ -259,4 +264,3 @@ async def _persist_final_markdown_if_possible(
         "created_at": str(record["created_at"]),
         "metadata": dict(record.get("metadata") or {}),
     }
-

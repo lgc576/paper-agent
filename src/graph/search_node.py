@@ -5,8 +5,8 @@ import re
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
-from src.agents.contracts import ReviewRequest
 from src.agents.base import AgentContext
+from src.agents.retrievalCorrectionAgent import search_intent_from_dict, search_intent_to_dict
 from src.agents.searchAgent import SearchAgent, SearchIntent, SearchSubtopic, load_search_agent_llm
 from src.graph.runtime import WorkflowRuntimeContext
 from src.graph.runtime_resources import WorkflowRuntimeResources
@@ -95,12 +95,25 @@ def run_search_agent_node():
             if reporter is not None:
                 reporter.progress("检索条件模型调用完成", stage="plan_search", **usage)
 
-        agent = SearchAgent(AgentContext(llm=resolved_llm, usage_callback=report_search_usage))
-        agent_update = await agent.async_run(state)
-        intent = agent_update["search_intent"]
-        request = _request_with_search_parse(state["request"], agent_update)
-        search_halted = bool(agent_update.get("search_halted"))
-        agent_diagnostics = dict(agent_update.get("diagnostics") or {})
+        override_intent = search_intent_from_dict(
+            state.get("search_intent_override"),
+            topic=state["request"].topic,
+            constraints=state["request"].constraints,
+        )
+        if override_intent is not None:
+            intent = override_intent
+            search_halted = False
+            agent_diagnostics = {
+                "used_llm": False,
+                "status": "repaired_intent",
+                "message": "已使用 QueryRepairAgent 生成的检索表达式重新检索。",
+            }
+        else:
+            agent = SearchAgent(AgentContext(llm=resolved_llm, usage_callback=report_search_usage))
+            agent_update = await agent.async_run(state)
+            intent = agent_update["search_intent"]
+            search_halted = bool(agent_update.get("search_halted"))
+            agent_diagnostics = dict(agent_update.get("diagnostics") or {})
 
         search_execution = SearchExecutionResult(
             papers=[],
@@ -109,14 +122,12 @@ def run_search_agent_node():
             source_results={},
             source_errors={},
         )
-        writing_context = dict(request.constraints.get("current_writing_context") or {})
         if reporter is not None:
             reporter.progress(
                 "检索条件已准备完成",
                 stage="intent_ready",
                 search_halted=search_halted,
                 keywords=list(intent.keywords),
-                writing_context=writing_context,
                 # <question> 如果intent默认应该是全源检索，但intent这里却没有值
                 检索来源=list(intent.sources),
                 max_results=intent.max_results,
@@ -124,11 +135,6 @@ def run_search_agent_node():
             if intent.keywords:
                 reporter.reasoning_delta(
                     f"本次检索将重点使用这些关键词：{'、'.join(intent.keywords[:6])}",
-                    stage="intent_ready",
-                )
-            if writing_context:
-                reporter.reasoning_delta(
-                    f"已识别写作身份/风格：{_writing_context_summary(writing_context)}",
                     stage="intent_ready",
                 )
 
@@ -159,10 +165,9 @@ def run_search_agent_node():
         search_results = [item.paper for item in scored_papers[:max_results]]
         search_scores = [item.to_dict() for item in scored_papers]
         drop_stats = _build_drop_stats(raw_papers, searchable_papers)
-        search_output = _build_search_output(request.topic, request.constraints, intent, search_results)
+        search_output = _build_search_output(state["request"].topic, state["request"].constraints, intent, search_results)
         search_summary = {
-            "topic": request.topic,
-            "writing_context": writing_context,
+            "topic": state["request"].topic,
             "search_halted": search_halted,
             "raw_candidate_count": search_execution.raw_candidate_count,
             "raw_paper_count": len(raw_papers),
@@ -198,7 +203,7 @@ def run_search_agent_node():
         if resolved_sink is not None:
             persistence_result = await asyncio.to_thread(
                 resolved_sink.persist,
-                topic=request.topic,
+                topic=state["request"].topic,
                 intent=intent,
                 raw_papers=raw_papers,
                 scored_papers=search_scores,
@@ -228,21 +233,29 @@ def run_search_agent_node():
                 artifact_count=len(search_artifact_refs),
             )
 
+        diagnostics = dict(state.get("diagnostics") or {})
+        diagnostics["agent"] = agent_diagnostics
+
         return State(
-            request=request,
+            request=state["request"],
             search_results=search_results,
             search_scores=search_scores,
+            search_intent=search_intent_to_dict(intent),
+            search_intent_override={},
             search_summary=search_summary,
             search_output=search_output,
             search_artifact_refs=search_artifact_refs,
             read_resume_checkpoint=state.get("read_resume_checkpoint", {}),
-            diagnostics={"agent": agent_diagnostics},
+            retrieval_correction=dict(state.get("retrieval_correction") or {}),
+            retrieval_correction_route=state.get("retrieval_correction_route", ""),
+            diagnostics=diagnostics,
             current_step="search",
             session_repo=state.get("session_repo"),
             session_key=state.get("session_key"),
             turn_id=state.get("turn_id"),
             search_node_service=state.get("search_node_service"),
             search_node_llm=state.get("search_node_llm"),
+            retrieval_correction_node_llm=state.get("retrieval_correction_node_llm"),
             read_node_llm=state.get("read_node_llm"),
             analysis_node_llm=state.get("analysis_node_llm"),
             search_node_sink=state.get("search_node_sink"),
@@ -252,17 +265,6 @@ def run_search_agent_node():
         )
 
     return _node
-
-
-def _request_with_search_parse(request: ReviewRequest, agent_update: JsonObject) -> ReviewRequest:
-    """把检索模型解析出的主题和写作约束写回请求。"""
-
-    topic = str(agent_update.get("research_topic") or request.topic).strip() or request.topic
-    constraints = dict(request.constraints or {})
-    writing_context = agent_update.get("writing_context")
-    if isinstance(writing_context, dict) and (writing_context.get("role") or writing_context.get("style")):
-        constraints["current_writing_context"] = dict(writing_context)
-    return ReviewRequest(topic=topic, constraints=constraints, language=request.language)
 
 
 def _resolve_reporter(state: State):
@@ -299,19 +301,6 @@ def _normalize_optional_str(value: Any) -> str | None:
 
     text = str(value).strip() if value is not None else ""
     return text or None
-
-
-def _writing_context_summary(value: JsonObject) -> str:
-    """把写作身份和风格整理成一句方便调试的话。"""
-
-    role = str(value.get("role") or "").strip()
-    style = str(value.get("style") or "").strip()
-    parts = []
-    if role:
-        parts.append(f"身份={role}")
-    if style:
-        parts.append(f"风格={style}")
-    return "；".join(parts) or "未识别"
 
 
 async def _execute_search_intent(

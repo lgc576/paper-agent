@@ -10,6 +10,7 @@ from src.agents.contracts import ReviewRequest
 from src.graph.analyse_node import run_analyse_node
 from src.graph.reply_node import run_compose_reply_node
 from src.graph.read_node import run_read_node
+from src.graph.retrieval_correction_node import route_after_retrieval_correction, run_retrieval_correction_node
 from src.graph.runtime import InlineWorkflowSyncPort, WorkflowRuntimeContext
 from src.graph.search_node import run_search_agent_node
 from src.graph.state_models import State
@@ -42,13 +43,22 @@ def build_graph():
 
     workflow = StateGraph(State)
     workflow.add_node("run_search_agent", _with_cancellation_boundary("run_search_agent", run_search_agent_node()))
+    workflow.add_node(
+        "run_retrieval_correction",
+        _with_cancellation_boundary("run_retrieval_correction", run_retrieval_correction_node()),
+    )
     workflow.add_node("run_read", _with_cancellation_boundary("run_read", run_read_node()))
     workflow.add_node("run_analyse", _with_cancellation_boundary("run_analyse", run_analyse_node()))
     workflow.add_node("run_writing_outline", _with_cancellation_boundary("run_writing_outline", run_writing_outline_node()))
     workflow.add_node("run_writing", _with_cancellation_boundary("run_writing", run_writing_node()))
     workflow.add_node("compose_reply", _with_cancellation_boundary("compose_reply", run_compose_reply_node()))
     workflow.add_conditional_edges(START, _entrypoint, {"run_search_agent": "run_search_agent", "run_read": "run_read"})
-    workflow.add_edge("run_search_agent", "run_read")
+    workflow.add_edge("run_search_agent", "run_retrieval_correction")
+    workflow.add_conditional_edges(
+        "run_retrieval_correction",
+        route_after_retrieval_correction,
+        {"run_search_agent": "run_search_agent", "run_read": "run_read"},
+    )
     workflow.add_edge("run_read", "run_analyse")
     workflow.add_edge("run_analyse", "run_writing_outline")
     workflow.add_edge("run_writing_outline", "run_writing")
@@ -149,9 +159,13 @@ def _build_initial_state(
         request=request,
         search_results=[],
         search_scores=[],
+        search_intent={},
+        search_intent_override={},
         search_summary={},
         search_output={},
         search_artifact_refs=[],
+        retrieval_correction={},
+        retrieval_correction_route="",
         read_results=[],
         read_summary={},
         read_artifact_refs=[],
@@ -287,4 +301,3 @@ def _build_repository_emitter(repo: SessionRepository, session_key: str):
         return event
 
     return _emit
-

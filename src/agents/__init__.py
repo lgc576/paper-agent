@@ -5,6 +5,7 @@ from .environment import AgentEnvironment
 from .analyseAgent import AnalyseAgent, build_analyse_agent
 from .registry import AgentRegistry
 from .readAgent import AbstractReadResult, ReadAgent, build_read_agent
+from .retrievalCorrectionAgent import QueryRepairAgent, RetrievalQualityJudge
 from .searchAgent import SearchAgent, SearchIntent, SearchSubtopic, build_search_agent
 from .writingOutlineAgent import WritingOutlineAgent, build_writing_outline_agent
 from .skills import SkillRegistry, SkillSpec
@@ -25,6 +26,8 @@ __all__ = [
     "ReviewRequest",
     "ReviewTask",
     "ReadAgent",
+    "RetrievalQualityJudge",
+    "QueryRepairAgent",
     "SearchAgent",
     "SearchIntent",
     "SearchSubtopic",

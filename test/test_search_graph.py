@@ -13,17 +13,25 @@ from src.repositories.sessions.sqlite import SQLiteSessionRepository
 class _FakeProvider:
     """为图测试提供稳定关键词输出，避免依赖真实模型配置。"""
 
-    def __init__(self, response_text: str | None = None, response: LLMResponse | None = None):
+    def __init__(
+        self,
+        response_text: str | None = None,
+        response: LLMResponse | None = None,
+        responses: list[str] | None = None,
+    ):
         """允许不同节点复用同一个可配置假模型。"""
 
         self.response_text = response_text or '{"keywords":["paper search","literature review"]}'
         self.response = response
+        self.responses = list(responses or [])
 
     def chat_with_retry(self, messages, **kwargs):
         """返回固定 JSON，确保搜索节点不会因为缺少 LLM 而终止。"""
 
         if self.response is not None:
             return self.response
+        if self.responses:
+            return LLMResponse(content=self.responses.pop(0), finish_reason="stop")
         return LLMResponse(content=self.response_text, finish_reason="stop")
 
     async def chat(self, messages, **kwargs):
@@ -32,11 +40,15 @@ class _FakeProvider:
         return self.chat_with_retry(messages, **kwargs)
 
 
-def _fake_snapshot(response_text: str | None = None, response: LLMResponse | None = None) -> ProviderSnapshot:
+def _fake_snapshot(
+    response_text: str | None = None,
+    response: LLMResponse | None = None,
+    responses: list[str] | None = None,
+) -> ProviderSnapshot:
     """构造可通过运行时类型检查的假 LLM 快照。"""
 
     return ProviderSnapshot(
-        provider=_FakeProvider(response_text=response_text, response=response),
+        provider=_FakeProvider(response_text=response_text, response=response, responses=responses),
         model="fake-model",
         context_window_tokens=4096,
         signature="fake-signature",
@@ -114,6 +126,60 @@ class _StubService:
         )
 
 
+class _CorrectionStubService:
+    """用于验证检索自纠回路的假检索服务。"""
+
+    def __init__(self):
+        self.calls = []
+
+    async def async_search(self, **kwargs):
+        self.calls.append(kwargs)
+        if len(self.calls) == 1:
+            papers = [
+                PaperDocument(
+                    id="drift-1",
+                    title="Multimodal imaging for glioma molecular subtype prediction",
+                    authors=["Tester"],
+                    abstract="This paper studies multimodal medical imaging for molecular subtype classification in glioma.",
+                    year=2025,
+                    source="openalex",
+                ),
+                PaperDocument(
+                    id="drift-2",
+                    title="Large language models for biomedical molecular diagnosis",
+                    authors=["Tester"],
+                    abstract="The work applies language models to biomedical diagnosis and molecular markers.",
+                    year=2025,
+                    source="openalex",
+                ),
+            ]
+        else:
+            papers = [
+                PaperDocument(
+                    id="fixed-1",
+                    title="Multimodal language models for de novo molecule generation",
+                    authors=["Tester"],
+                    abstract="The paper studies multimodal LLMs for de novo molecule generation and molecular design.",
+                    year=2026,
+                    source="openalex",
+                ),
+                PaperDocument(
+                    id="fixed-2",
+                    title="Large multimodal models for generative molecular modeling",
+                    authors=["Tester"],
+                    abstract="The work evaluates large multimodal models on molecule generation tasks.",
+                    year=2026,
+                    source="openalex",
+                ),
+            ]
+        return SearchResponse(
+            query=kwargs["query"],
+            sources_used=["openalex"],
+            source_results={"openalex": len(papers)},
+            papers=papers,
+        )
+
+
 class GraphTest(unittest.TestCase):
     """验证通用图入口在当前搜索场景下的行为稳定性。"""
 
@@ -150,6 +216,84 @@ class GraphTest(unittest.TestCase):
         self.assertIn("agent", result.diagnostics)
         self.assertIn("search_scores", result.state)
         self.assertGreaterEqual(len(result.state["search_scores"]), 1)
+
+    def test_retrieval_self_correction_repairs_drifted_query(self):
+        """验证检索质量不足时会改写 query，并在下一轮检索通过后进入阅读。"""
+
+        stub = _CorrectionStubService()
+        search_and_correction_llm = _fake_snapshot(
+            responses=[
+                '{"subtopics":[{"subtopic":"多模态大模型与 molecular 方向","keyword":"(multimodal large language models) and (molecular)"}]}',
+                (
+                    '{"passed":false,"confidence":0.93,'
+                    '"required_facets":[{"name":"method","description":"multimodal LLM"},'
+                    '{"name":"object","description":"molecule"},{"name":"task","description":"generation"}],'
+                    '"coverage_stats":{"method":{"matched":2,"total":2},"object":{"matched":0,"total":2},'
+                    '"task":{"matched":0,"total":2},"all_required":{"matched":0,"total":2}},'
+                    '"failed_facets":["object","task"],"missing_facets":["molecule","generation"],'
+                    '"failure_type":"query_drift",'
+                    '"false_positive_pattern":["molecular subtype","multimodal medical imaging","glioma"],'
+                    '"diagnostic":"Most retrieved papers use molecular for biomedical subtype rather than molecule generation.",'
+                    '"recommendations":["add de novo molecule generation and molecular design terms"]}'
+                ),
+                (
+                    '{"subtopics":[{"subtopic":"多模态大模型用于分子生成",'
+                    '"keyword":"(multimodal LLM or multimodal language model) and '
+                    '(de novo molecule generation or molecular design generation)"}],'
+                    '"excluded_terms":["molecular subtype","glioma"],'
+                    '"rationale":"补充分子生成任务词并排除上一轮医学分型偏移。"}'
+                ),
+                (
+                    '{"passed":true,"confidence":0.9,'
+                    '"required_facets":[{"name":"method","description":"multimodal LLM"},'
+                    '{"name":"object","description":"molecule"},{"name":"task","description":"generation"}],'
+                    '"coverage_stats":{"method":{"matched":2,"total":2},"object":{"matched":2,"total":2},'
+                    '"task":{"matched":2,"total":2},"all_required":{"matched":2,"total":2}},'
+                    '"failed_facets":[],"missing_facets":[],"failure_type":"",'
+                    '"false_positive_pattern":[],"diagnostic":"retrieval quality sufficient","recommendations":[]}'
+                ),
+            ]
+        )
+
+        result = asyncio.run(
+            run_graph(
+                ReviewRequest(
+                    topic="调研多模态大模型在分子生成领域的应用",
+                    constraints={
+                        "sources": ["openalex"],
+                        "max_results": 5,
+                        "retrieval_correction_max_loops": 1,
+                        "retrieval_correction_min_all_required_count": 2,
+                    },
+                ),
+                state_overrides={
+                    "search_node_service": stub,
+                    "search_node_llm": search_and_correction_llm,
+                    "read_node_llm": _read_snapshot(),
+                    "analysis_node_llm": _fake_snapshot(response_text="{}"),
+                    "writing_outline_node_llm": "disabled",
+                    "writing_node_llm": "disabled",
+                },
+            )
+        )
+
+        self.assertEqual(len(stub.calls), 2)
+        self.assertIn("de novo molecule generation", stub.calls[1]["keyword_expression"])
+        correction = result.diagnostics["retrieval_correction"]
+        self.assertEqual(correction["status"], "passed")
+        self.assertEqual(correction["repair_attempt_count"], 1)
+        self.assertEqual(correction["max_correction_round"], 1)
+        self.assertEqual(correction["history"][0]["report"]["failure_type"], "query_drift")
+        self.assertLess(
+            correction["history"][0]["report"]["quality_score"],
+            correction["history"][0]["report"]["quality_threshold"],
+        )
+        self.assertGreaterEqual(
+            correction["latest_report"]["quality_score"],
+            correction["latest_report"]["quality_threshold"],
+        )
+        self.assertIn("Rsemantic", correction["latest_report"]["quality_components"])
+        self.assertEqual(result.papers[0].id, "fixed-1")
 
     def test_run_graph_executes_each_requested_source_with_full_limit(self):
         """验证搜索节点会把多来源请求收口到一次异步服务调用里。"""

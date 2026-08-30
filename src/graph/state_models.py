@@ -19,9 +19,13 @@ class State(TypedDict, total=False):
     request: ReviewRequest
     search_results: list[PaperDocument]
     search_scores: list[JsonObject]
+    search_intent: JsonObject
+    search_intent_override: JsonObject
     search_summary: JsonObject
     search_output: JsonObject
     search_artifact_refs: list[JsonObject]
+    retrieval_correction: JsonObject
+    retrieval_correction_route: str
     read_results: list[JsonObject]
     read_summary: JsonObject
     read_artifact_refs: list[JsonObject]
@@ -45,6 +49,7 @@ class State(TypedDict, total=False):
     runtime_context: WorkflowRuntimeContext
     search_node_service: PaperSearchService
     search_node_llm: ProviderSnapshot | None | str
+    retrieval_correction_node_llm: ProviderSnapshot | None | str
     read_node_llm: ProviderSnapshot | None | str
     analysis_node_llm: ProviderSnapshot | None | str
     writing_outline_node_llm: ProviderSnapshot | None | str
