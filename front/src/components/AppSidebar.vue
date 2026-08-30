@@ -117,10 +117,10 @@ function statusLabel(status: SessionStatus) {
   <aside class="sidebar" :data-collapsed="collapsed">
     <div class="sidebar-head">
       <div class="brand-lockup">
-        <div class="brand-mark">PA</div>
+        <div class="brand-mark">R</div>
         <div v-if="!collapsed" class="brand-copy">
-          <span class="eyebrow">Papers Agents</span>
-          <strong>Console</strong>
+          <span class="eyebrow">ReviewCraft</span>
+          <strong>Survey Studio</strong>
         </div>
       </div>
       <button

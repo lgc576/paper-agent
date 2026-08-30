@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from src.llm import ModelConfig, ProviderSnapshot, SystemConfig, make_provider
+from src.services.memory import writing_prompt_from_constraints
 
 from .base import AgentContext, AgentSpec, BaseAgent
 from .contracts import JsonObject
@@ -127,6 +128,7 @@ def _outline_messages(state: JsonObject) -> list[JsonObject]:
     overall_framework = str(analysis_report.get("overall_framework") or "").strip()
     overall_analysis = _compact_overall_analysis(dict(analysis_report.get("overall_analysis") or {}))
     subtopic_analyses = _compact_subtopic_analyses(list(analysis_report.get("subtopic_analyses") or []))
+    memory_prompt = writing_prompt_from_constraints(dict(getattr(request, "constraints", {}) or {}))
 
     # 中文说明：大纲约束集中管理，避免大纲格式与后续写作节点的输入约定不一致。
     system_prompt = WRITING_OUTLINE_AGENT_SYSTEM_PROMPT
@@ -135,6 +137,7 @@ def _outline_messages(state: JsonObject) -> list[JsonObject]:
             "用户综述主题": getattr(request, "topic", ""),
             "任务": "根据 overall_framework 生成章节和小节级别的写作大纲",
             "overall_framework": overall_framework,
+            "写作约束与记忆": memory_prompt,
             "综合分析节点输出": overall_analysis,
             "可使用的子主题分析": subtopic_analyses,
             "输出示例": {

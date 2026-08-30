@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
+from src.agents.contracts import ReviewRequest
 from src.agents.base import AgentContext
 from src.agents.searchAgent import SearchAgent, SearchIntent, SearchSubtopic, load_search_agent_llm
 from src.graph.runtime import WorkflowRuntimeContext
@@ -97,6 +98,7 @@ def run_search_agent_node():
         agent = SearchAgent(AgentContext(llm=resolved_llm, usage_callback=report_search_usage))
         agent_update = await agent.async_run(state)
         intent = agent_update["search_intent"]
+        request = _request_with_search_parse(state["request"], agent_update)
         search_halted = bool(agent_update.get("search_halted"))
         agent_diagnostics = dict(agent_update.get("diagnostics") or {})
 
@@ -107,12 +109,14 @@ def run_search_agent_node():
             source_results={},
             source_errors={},
         )
+        writing_context = dict(request.constraints.get("current_writing_context") or {})
         if reporter is not None:
             reporter.progress(
                 "检索条件已准备完成",
                 stage="intent_ready",
                 search_halted=search_halted,
                 keywords=list(intent.keywords),
+                writing_context=writing_context,
                 # <question> 如果intent默认应该是全源检索，但intent这里却没有值
                 检索来源=list(intent.sources),
                 max_results=intent.max_results,
@@ -120,6 +124,11 @@ def run_search_agent_node():
             if intent.keywords:
                 reporter.reasoning_delta(
                     f"本次检索将重点使用这些关键词：{'、'.join(intent.keywords[:6])}",
+                    stage="intent_ready",
+                )
+            if writing_context:
+                reporter.reasoning_delta(
+                    f"已识别写作身份/风格：{_writing_context_summary(writing_context)}",
                     stage="intent_ready",
                 )
 
@@ -150,9 +159,10 @@ def run_search_agent_node():
         search_results = [item.paper for item in scored_papers[:max_results]]
         search_scores = [item.to_dict() for item in scored_papers]
         drop_stats = _build_drop_stats(raw_papers, searchable_papers)
-        search_output = _build_search_output(state["request"].topic, state["request"].constraints, intent, search_results)
+        search_output = _build_search_output(request.topic, request.constraints, intent, search_results)
         search_summary = {
-            "topic": state["request"].topic,
+            "topic": request.topic,
+            "writing_context": writing_context,
             "search_halted": search_halted,
             "raw_candidate_count": search_execution.raw_candidate_count,
             "raw_paper_count": len(raw_papers),
@@ -188,7 +198,7 @@ def run_search_agent_node():
         if resolved_sink is not None:
             persistence_result = await asyncio.to_thread(
                 resolved_sink.persist,
-                topic=state["request"].topic,
+                topic=request.topic,
                 intent=intent,
                 raw_papers=raw_papers,
                 scored_papers=search_scores,
@@ -219,7 +229,7 @@ def run_search_agent_node():
             )
 
         return State(
-            request=state["request"],
+            request=request,
             search_results=search_results,
             search_scores=search_scores,
             search_summary=search_summary,
@@ -242,6 +252,17 @@ def run_search_agent_node():
         )
 
     return _node
+
+
+def _request_with_search_parse(request: ReviewRequest, agent_update: JsonObject) -> ReviewRequest:
+    """把检索模型解析出的主题和写作约束写回请求。"""
+
+    topic = str(agent_update.get("research_topic") or request.topic).strip() or request.topic
+    constraints = dict(request.constraints or {})
+    writing_context = agent_update.get("writing_context")
+    if isinstance(writing_context, dict) and (writing_context.get("role") or writing_context.get("style")):
+        constraints["current_writing_context"] = dict(writing_context)
+    return ReviewRequest(topic=topic, constraints=constraints, language=request.language)
 
 
 def _resolve_reporter(state: State):
@@ -278,6 +299,19 @@ def _normalize_optional_str(value: Any) -> str | None:
 
     text = str(value).strip() if value is not None else ""
     return text or None
+
+
+def _writing_context_summary(value: JsonObject) -> str:
+    """把写作身份和风格整理成一句方便调试的话。"""
+
+    role = str(value.get("role") or "").strip()
+    style = str(value.get("style") or "").strip()
+    parts = []
+    if role:
+        parts.append(f"身份={role}")
+    if style:
+        parts.append(f"风格={style}")
+    return "；".join(parts) or "未识别"
 
 
 async def _execute_search_intent(

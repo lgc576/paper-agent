@@ -128,6 +128,7 @@ export interface SessionRuntimeEvent {
   artifact?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
   keywords?: string[];
+  writing_context?: Record<string, unknown>;
   sources?: string[];
   max_results?: number;
   raw_paper_count?: number;

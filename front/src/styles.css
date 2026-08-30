@@ -1926,8 +1926,8 @@ body {
 
 .app-shell,
 .app-shell[data-collapsed="true"] {
-  /* 中文说明：侧栏宽度随屏幕变化，大屏更宽，小屏仍给主界面保留足够空间。 */
-  grid-template-columns: clamp(220px, 16vw, 340px) minmax(0, 1fr);
+  /* 中文说明：侧栏需要给中文标题留出足够宽度，避免历史记录被挤成逐字换行。 */
+  grid-template-columns: 300px minmax(0, 1fr);
 }
 
 .app-shell[data-collapsed="true"] {
@@ -3618,5 +3618,711 @@ body {
     flex: 1 1 calc(50% - 8px);
     min-width: 0;
     max-width: calc(50% - 4px);
+  }
+}
+
+/* 中文说明：下面这一段是最终的 Bento 风格覆盖层，只改外观，不改变页面数据和接口调用。 */
+:root {
+  --bg: #f6f7f9;
+  --bg-strong: #eceff3;
+  --surface: #ffffff;
+  --surface-strong: #ffffff;
+  --surface-muted: #f5f7fa;
+  --border: #e5e7eb;
+  --border-strong: #d7dce3;
+  --text: #18171c;
+  --text-soft: #667085;
+  --text-faint: #98a2b3;
+  --accent: #3b82f6;
+  --accent-soft: #edf4ff;
+  --success: #2563eb;
+  --success-soft: #edf4ff;
+  --warning: #18171c;
+  --warning-soft: #f2f4f7;
+  --danger: #d92d20;
+  --danger-soft: #fff1f0;
+  --shadow-lg: 0 18px 42px rgba(24, 23, 28, 0.1);
+  --shadow-md: 0 8px 24px rgba(24, 23, 28, 0.06);
+  --radius-xl: 22px;
+  --radius-lg: 18px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+}
+
+body {
+  background: var(--bg);
+}
+
+.app-main {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px;
+}
+
+.app-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  display: flex;
+  justify-content: flex-end;
+  min-height: 46px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(16px);
+}
+
+.app-topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-topbar-nav a,
+.app-topbar-nav button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.app-topbar-nav a.router-link-active,
+.app-topbar-nav a:hover,
+.app-topbar-nav button:hover {
+  border-color: var(--border);
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+.sidebar {
+  border-right: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 8px 0 28px rgba(24, 23, 28, 0.04);
+}
+
+.brand-mark {
+  border: 1px solid var(--text);
+  border-radius: 10px;
+  background: var(--text);
+  color: #fff;
+}
+
+.brand-copy .eyebrow {
+  color: var(--text-faint);
+}
+
+.brand-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-item {
+  border-radius: var(--radius-sm);
+}
+
+.nav-item.active {
+  background: var(--text);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(24, 23, 28, 0.14);
+}
+
+.sidebar-session-item,
+.sidebar-history-state,
+.sidebar-user {
+  border-radius: var(--radius-sm);
+}
+
+.sidebar-session-item {
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 12px 10px;
+}
+
+.sidebar-session-main {
+  width: 100%;
+  min-width: 0;
+}
+
+.sidebar-session-title,
+.sidebar-session-preview,
+.sidebar-session-meta {
+  min-width: 0;
+}
+
+.sidebar-session-preview {
+  display: block;
+  white-space: nowrap;
+}
+
+.sidebar-session-meta {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.sidebar-session-item.active {
+  border-color: #bfd7ff;
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.sidebar-session-accent {
+  display: none;
+}
+
+.sidebar-user {
+  padding: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+
+.sidebar-user-avatar {
+  border-radius: 10px;
+  background: var(--text);
+}
+
+.button.primary {
+  border-color: var(--text);
+  background: var(--text);
+  box-shadow: 0 8px 18px rgba(24, 23, 28, 0.12);
+}
+
+.button.primary:hover:not(:disabled) {
+  background: #2a2930;
+}
+
+.button.secondary,
+.button.tertiary,
+.button.ghost-link,
+.icon-button {
+  background: var(--surface-strong);
+}
+
+.field,
+.textarea,
+.session-composer-textarea {
+  border-color: var(--border);
+  background: var(--surface-muted);
+}
+
+.field:focus,
+.textarea:focus,
+.session-composer-textarea:focus {
+  border-color: #9dc4ff;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+}
+
+/* 中文说明：欢迎页的大输入区改成 Bento 卡片组合，按钮和快捷主题保持原来的功能。 */
+.session-workspace-shell[data-welcome-visible="true"] {
+  max-width: 1180px;
+}
+
+.session-workspace-shell[data-welcome-visible="true"] .session-workbench,
+.session-workspace-shell[data-welcome-visible="true"] .session-main-column {
+  min-height: calc(100vh - 96px);
+}
+
+.session-composer-card[data-variant="welcome"] {
+  width: min(100%, 980px);
+  gap: 18px;
+}
+
+.session-welcome-heading {
+  gap: 10px;
+}
+
+.session-welcome-badge {
+  min-height: 28px;
+  border-color: #dbeafe;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.68rem;
+}
+
+.session-welcome-heading h2 {
+  max-width: 760px;
+  color: var(--text);
+  font-size: clamp(1.7rem, 2.4vw, 2.45rem);
+  font-weight: 800;
+}
+
+.session-welcome-heading h2 strong {
+  color: var(--accent);
+}
+
+.session-welcome-heading p {
+  max-width: 720px;
+  color: var(--text-soft);
+  font-size: 0.84rem;
+}
+
+.session-welcome-prompt-card {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.session-welcome-input-row {
+  grid-column: 1 / -1;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  min-height: 168px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-muted);
+}
+
+.session-welcome-input-icon {
+  color: var(--accent);
+}
+
+/* 中文说明：欢迎页展开检索设置时，让设置面板独占整行，避免输入框被 Bento 小格子挤出容器。 */
+.session-welcome-constraints-panel {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin: 0;
+}
+
+.session-welcome-constraints-panel .session-composer-constraint-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.session-welcome-constraints-panel .field {
+  min-width: 0;
+}
+
+.session-composer-card[data-variant="welcome"] .session-composer-textarea {
+  min-height: 130px;
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.session-composer-card[data-variant="welcome"] .session-composer-send {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: var(--text);
+  box-shadow: 0 10px 22px rgba(24, 23, 28, 0.16);
+}
+
+.session-composer-card[data-variant="welcome"] .session-composer-send:hover:not(:disabled) {
+  background: var(--accent);
+}
+
+.session-welcome-quick-start {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto repeat(4, minmax(0, 1fr)) auto;
+  gap: 10px;
+  padding: 0;
+  border-top: 0;
+}
+
+.session-welcome-quick-label,
+.session-welcome-topic-button,
+.session-welcome-settings-button {
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-soft);
+}
+
+.session-welcome-topic-button {
+  padding: 0 12px;
+}
+
+.session-welcome-topic-button span {
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-welcome-topic-button:hover,
+.session-welcome-settings-button:hover {
+  border-color: #bfdbfe;
+  background: var(--accent-soft);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.session-welcome-inspiration {
+  color: var(--text-faint);
+}
+
+/* 中文说明：调研页标题最多显示两行，空间不足时自动省略，避免把顶部卡片撑高。 */
+.session-hero-card {
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.session-compact-copy h1 {
+  display: -webkit-box;
+  max-width: 860px;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 1.06rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.session-hero-icon,
+.metric-icon,
+.insight-status-icon,
+.insight-artifact-icon {
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* 中文说明：执行流程使用时间轴卡片，外层仍沿用 Bento 的留白、边框和阴影。 */
+.session-timeline-card {
+  overflow: visible;
+}
+
+.session-timeline-head {
+  padding: 4px 2px 10px;
+}
+
+.session-timeline-head h2 {
+  font-size: 1rem;
+}
+
+.session-timeline-scroll {
+  padding: 4px 10px 92px;
+}
+
+.runtime-event-tree {
+  position: relative;
+  display: grid;
+  gap: 20px;
+  padding: 4px 0;
+}
+
+.runtime-event-tree::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  content: "";
+  background: var(--border-strong);
+}
+
+.runtime-event-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr);
+  min-height: 88px;
+  padding-left: 0;
+}
+
+.runtime-event-item::before {
+  display: none;
+}
+
+.runtime-event-item > .runtime-event-row,
+.runtime-event-item > .runtime-event-branch {
+  grid-column: 1;
+}
+
+.runtime-event-item:nth-child(even) > .runtime-event-row,
+.runtime-event-item:nth-child(even) > .runtime-event-branch {
+  grid-column: 3;
+}
+
+.runtime-event-row {
+  position: relative;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  min-height: 96px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  transition: transform 200ms ease-out, border-color 200ms ease-out, box-shadow 200ms ease-out;
+}
+
+.runtime-event-row:hover {
+  border-color: #bfdbfe;
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-3px);
+}
+
+.runtime-event-toggle {
+  display: none;
+}
+
+.runtime-event-dot {
+  position: absolute;
+  top: 24px;
+  right: -42px;
+  width: 14px;
+  height: 14px;
+  border: 4px solid #fff;
+  border-radius: 999px;
+  background: var(--border-strong);
+  box-shadow: 0 0 0 1px var(--border), 0 4px 12px rgba(24, 23, 28, 0.12);
+  color: transparent;
+}
+
+.runtime-event-dot svg {
+  display: none;
+}
+
+.runtime-event-item:nth-child(even) > .runtime-event-row .runtime-event-dot,
+.runtime-event-item:nth-child(even) > .runtime-event-branch > .runtime-event-row .runtime-event-dot {
+  right: auto;
+  left: -42px;
+}
+
+.runtime-event-item[data-status="completed"] > .runtime-event-row .runtime-event-dot,
+.runtime-event-item[data-status="completed"] > .runtime-event-branch > .runtime-event-row .runtime-event-dot,
+.runtime-event-item[data-status="running"] > .runtime-event-row .runtime-event-dot,
+.runtime-event-item[data-status="running"] > .runtime-event-branch > .runtime-event-row .runtime-event-dot {
+  background: var(--accent);
+}
+
+.runtime-event-item[data-status="failed"] > .runtime-event-row .runtime-event-dot,
+.runtime-event-item[data-status="failed"] > .runtime-event-branch > .runtime-event-row .runtime-event-dot {
+  background: var(--danger);
+}
+
+.runtime-event-title-line strong {
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
+.runtime-event-show {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text-soft);
+  font-size: 0.74rem;
+  line-height: 1.55;
+  text-overflow: ellipsis;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.runtime-event-meta {
+  justify-items: start;
+  min-width: 0;
+  margin-top: 8px;
+}
+
+.runtime-event-time,
+.runtime-event-tokens {
+  font-family: var(--font-sans);
+}
+
+.runtime-event-children {
+  grid-column: 1 / -1;
+  margin: 14px 0 0 18px;
+  padding-left: 16px;
+  border-left: 1px solid var(--border);
+}
+
+.runtime-event-children::before {
+  display: none;
+}
+
+.runtime-event-children .runtime-event-item {
+  display: block;
+  min-height: 0;
+  padding-left: 0;
+}
+
+.runtime-event-children .runtime-event-row {
+  min-height: 70px;
+}
+
+.runtime-event-children .runtime-event-dot,
+.runtime-event-children .runtime-event-item:nth-child(even) > .runtime-event-row .runtime-event-dot,
+.runtime-event-children .runtime-event-item:nth-child(even) > .runtime-event-branch > .runtime-event-row .runtime-event-dot {
+  left: -26px;
+  right: auto;
+}
+
+.session-insights {
+  gap: 12px;
+}
+
+.insight-card {
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+/* 中文说明：系统配置页复用同一套 Bento 卡片，只压低字号，保证表单能扫读。 */
+.settings-page {
+  --settings-blue: var(--accent);
+  --settings-text: var(--text);
+  --settings-muted: var(--text-soft);
+  --settings-border: var(--border);
+}
+
+.settings-page .hero-card,
+.settings-page .panel-section,
+.settings-page .state-card,
+.settings-page .metric-card,
+.settings-page .table-card,
+.settings-page .editor-card,
+.settings-page .provider-editor-card,
+.settings-page .provider-create-card {
+  border-color: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.settings-page .hero-card {
+  padding: 20px;
+}
+
+.settings-page .hero-copy h1 {
+  font-size: 1.45rem;
+}
+
+.settings-page .button.primary {
+  border-color: var(--text);
+  background: var(--text);
+}
+
+.settings-page .metric-card:nth-child(1) .metric-icon,
+.settings-page .metric-card:nth-child(2) .metric-icon,
+.settings-page .metric-card:nth-child(3) .metric-icon {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.settings-page .provider-tab,
+.settings-page .provider-create-card,
+.settings-page .provider-editor-card,
+.settings-page .table-card,
+.settings-page .editor-card {
+  border-radius: var(--radius-md);
+}
+
+.settings-page .provider-tab.active {
+  border-color: #bfdbfe;
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.settings-page .field,
+.settings-page .textarea {
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+}
+
+@media (max-width: 980px) {
+  .app-main {
+    padding: 12px;
+  }
+
+  .app-topbar {
+    position: relative;
+  }
+
+  .app-topbar-nav {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .session-welcome-quick-start {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .session-welcome-constraints-panel .session-composer-constraint-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .session-welcome-quick-label,
+  .session-welcome-settings-button {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .runtime-event-tree::before {
+    left: 10px;
+  }
+
+  .runtime-event-item,
+  .runtime-event-item:nth-child(even) {
+    display: block;
+    padding-left: 30px;
+  }
+
+  .runtime-event-item > .runtime-event-row,
+  .runtime-event-item > .runtime-event-branch,
+  .runtime-event-item:nth-child(even) > .runtime-event-row,
+  .runtime-event-item:nth-child(even) > .runtime-event-branch {
+    grid-column: auto;
+  }
+
+  .runtime-event-dot,
+  .runtime-event-item:nth-child(even) > .runtime-event-row .runtime-event-dot,
+  .runtime-event-item:nth-child(even) > .runtime-event-branch > .runtime-event-row .runtime-event-dot {
+    left: -27px;
+    right: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-topbar {
+    justify-content: flex-start;
+  }
+
+  .app-topbar-nav a,
+  .app-topbar-nav button {
+    padding: 0 10px;
+  }
+
+  .session-welcome-heading h2 {
+    font-size: 1.62rem;
+  }
+
+  .session-welcome-prompt-card {
+    gap: 12px;
+    padding: 12px;
+    border-radius: var(--radius-lg);
+  }
+
+  .session-welcome-input-row {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .session-composer-card[data-variant="welcome"] .session-composer-send {
+    grid-column: 2;
+  }
+
+  .session-welcome-quick-start {
+    grid-template-columns: 1fr;
+  }
+
+  .session-welcome-constraints-panel .session-composer-constraint-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .session-welcome-topic-button {
+    max-width: none;
   }
 }

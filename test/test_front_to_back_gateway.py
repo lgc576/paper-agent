@@ -93,7 +93,8 @@ class FrontToBackFastApiTest(unittest.TestCase):
         created = api.create_session("Paper reading")
         sessions = api.list_sessions()
 
-        self.assertFalse(bootstrap["runtime_capabilities"]["websocket_stream"])
+        self.assertTrue(bootstrap["runtime_capabilities"]["sse_streaming"])
+        self.assertTrue(bootstrap["runtime_capabilities"]["session_runs"])
         self.assertTrue(bootstrap["runtime_capabilities"]["fastapi_rest"])
         self.assertFalse(bootstrap["runtime_capabilities"]["auth_required"])
         self.assertEqual(created["session"]["title"], "Paper reading")

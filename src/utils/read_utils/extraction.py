@@ -15,6 +15,31 @@ from src.utils.read_utils.chunkers import TextChunk, load_chunks_file
 JsonObject = dict[str, Any]
 
 _CHUNK_CITATION_PATTERN = re.compile(r"\[([^\[\]]+)\]")
+CONTEXT_EXTRACTION_MAX_CHARS = 1400
+CONTEXT_EXTRACTION_FIELD_LIMIT = 260
+CONTEXT_EXTRACTION_FIELDS = (
+    "research_topic",
+    "main_question",
+    "research_question",
+    "solved_problem",
+    "problem",
+    "research_object",
+    "research_object_or_scene",
+    "methods",
+    "method",
+    "datasets",
+    "data",
+    "conclusions",
+    "main_results",
+    "results",
+    "contributions",
+    "innovation",
+    "innovations",
+    "novelty",
+    "limitations",
+    "summary",
+    "abstract",
+)
 
 
 EXTRACTION_SCHEMA: JsonObject = {
@@ -162,6 +187,33 @@ def extraction_payload(record: JsonObject | None) -> JsonObject:
     return dict(extraction) if isinstance(extraction, dict) else empty_extraction()
 
 
+def compact_extraction_for_context(extraction: JsonObject | None, *, max_chars: int = CONTEXT_EXTRACTION_MAX_CHARS) -> JsonObject:
+    """把全文精读结果压成适合放进提示词的小 JSON。
+
+    中文注释：
+    extraction.json 可能会越来越大，但分析和写作模型通常只需要知道论文解决什么问题、
+    用什么方法、有什么结论、创新点和局限。这里按字段挑重点并截短，避免把完整 JSON
+    全部塞进上下文，减少超长请求和 503 的风险。
+    """
+
+    if not isinstance(extraction, dict):
+        return {}
+
+    compact: JsonObject = {}
+    for key in CONTEXT_EXTRACTION_FIELDS:
+        _append_context_field(compact, key, extraction.get(key), max_chars=max_chars)
+
+    if compact:
+        return compact
+
+    # 中文注释：如果后续模型换了字段名，至少保留前几个有文字的字段，而不是整包透传。
+    for key in sorted(extraction):
+        _append_context_field(compact, str(key), extraction.get(key), max_chars=max_chars)
+        if len(json.dumps(compact, ensure_ascii=False)) >= max_chars:
+            break
+    return compact
+
+
 async def _call_model(
     llm: ProviderSnapshot,
     messages: list[JsonObject],
@@ -202,6 +254,34 @@ JSON 必须且仅包含 research_topic、research_object、methods、conclusions
 每个非空字段都必须在句末或判断后标注来源 chunkId，格式如 [chunkId]，并且只能引用输入中真实存在的 chunkId。
 如果全文没有明确说明某个字段，请把该字段写成空字符串。"""
     return [{"role": "system", "content": instruction}, {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}]
+
+
+def _append_context_field(compact: JsonObject, key: str, value: Any, *, max_chars: int) -> None:
+    """在不超过总长度预算的前提下追加一个字段。"""
+
+    text = _context_text(value, CONTEXT_EXTRACTION_FIELD_LIMIT)
+    if not text:
+        return
+    trial = {**compact, key: text}
+    if len(json.dumps(trial, ensure_ascii=False)) <= max_chars:
+        compact[key] = text
+
+
+def _context_text(value: Any, limit: int) -> str:
+    """把任意字段值整理成短文本，列表和字典也只保留可读摘要。"""
+
+    if isinstance(value, str):
+        text = value
+    elif isinstance(value, (list, tuple)):
+        text = "；".join(str(item).strip() for item in value if str(item).strip())
+    elif isinstance(value, dict):
+        text = json.dumps(value, ensure_ascii=False)
+    else:
+        text = str(value or "")
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 3].rstrip() + "..."
 
 
 def _load_cached_extraction(output_path: Path, valid_chunk_ids: set[str]) -> JsonObject | None:

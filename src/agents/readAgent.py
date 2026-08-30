@@ -12,6 +12,7 @@ from src.llm import ModelConfig, ProviderSnapshot, SystemConfig, make_provider
 from src.llm.base import LLMResponse
 from src.models.read_models import ReadNote, ReadRelevance, normalize_match_levels
 from src.paper_retrieval.models import PaperDocument
+from src.services.memory import research_constraints_from_constraints
 
 from .base import AgentContext, AgentSpec, BaseAgent
 from .contracts import JsonObject
@@ -196,7 +197,7 @@ class ReadAgent(BaseAgent):
 
         payload = {
             "用户主题": topic,
-            "用户要求": constraints,
+            "用户要求": research_constraints_from_constraints(constraints),
             "论文": {
                 "标题": paper.title,
                 "摘要": paper.abstract,

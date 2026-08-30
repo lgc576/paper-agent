@@ -8,6 +8,7 @@ from typing import Any, Callable
 
 from src.models.sessions import utc_now
 from src.repositories.sessions.base import SessionRepository
+from src.services.memory import memory_context_for_record, record_turn_memory
 from src.utils import get_logger, logging_context
 from src.utils.readable_id import create_readable_id
 
@@ -54,7 +55,7 @@ class AssistantMessageBuffer:
     def persist(self, repo: SessionRepository, session_key: str, turn_id: str) -> None:
         """把缓冲区里的内容回写成一条正式的 assistant 消息。"""
 
-        assistant_content = "".join(self.content_chunks).strip()
+        assistant_content = self.content_text()
         assistant_reasoning = "".join(self.reasoning_chunks).strip()
         if not assistant_content and not assistant_reasoning and not self.media:
             return
@@ -66,6 +67,11 @@ class AssistantMessageBuffer:
             media=copy.deepcopy(self.media),
             turn_id=turn_id,
         )
+
+    def content_text(self) -> str:
+        """返回本轮助手正文，供消息落库和用户记忆共用。"""
+
+        return "".join(self.content_chunks).strip()
 
 
 def list_sessions(repo: SessionRepository) -> JsonObject:
@@ -83,7 +89,7 @@ def fetch_thread(repo: SessionRepository, key: str) -> JsonObject:
 def create_session(repo: SessionRepository, body: JsonObject | None = None) -> JsonObject:
     """创建一个新会话。"""
 
-    body = body or {}
+    body = copy.deepcopy(body or {})
     record = repo.create(title=str(body.get("title") or "New chat"), workspace_scope=body.get("workspace_scope"))
     return {"session": record.summary()}
 
@@ -103,13 +109,15 @@ def submit_message(
 ) -> JsonObject:
     """同步提交一条消息，并完整返回这次运行产生的事件。"""
 
-    body = body or {}
+    body = copy.deepcopy(body or {})
     content = str(body.get("content") or "")
     if not content.strip() and not body.get("media"):
         raise ValueError("content is required")
 
     # 中文注释：先确认会话存在，避免把消息误写到不存在的会话里。
-    repo.get(session_key)
+    record = repo.get(session_key)
+    record = repo.get(session_key)
+    body["memory_context"] = memory_context_for_record(repo, record, content)
 
     # 调用方没有提供回合编号时，在这里补上带创建时间的编号，方便从日志定位本次提交。
     turn_id = str(body.get("turn_id") or create_readable_id())
@@ -179,6 +187,7 @@ def submit_message(
 
             _persist_runtime_events(repo, session_key, events)
             assistant_buffer.persist(repo, session_key, turn_id)
+            record_turn_memory(repo, record, content, assistant_buffer.content_text(), status="completed")
             repo.set_status(session_key, "completed")
             logger.info("同步消息处理完成", extra={"event_count": len(events)})
     except Exception as error:
@@ -332,4 +341,3 @@ def _default_message_handler(chat_id: str, content: str, frame: JsonObject, emit
             "timestamp": utc_now(),
         }
     )
-

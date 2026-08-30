@@ -10,6 +10,7 @@ from langgraph.graph import END, START, StateGraph
 from src.llm import ModelConfig, ProviderSnapshot, SystemConfig, make_provider
 from src.utils.read_utils.cache import safe_cache_name
 from src.utils.read_utils.chunkers import TextChunk, load_chunks_file
+from src.utils.read_utils.extraction import compact_extraction_for_context
 
 from .base import AgentContext, AgentSpec, BaseAgent
 from .contracts import JsonObject
@@ -50,6 +51,7 @@ class SectionLoopState(TypedDict, total=False):
     review: JsonObject
     completed: bool
     warnings: list[str]
+    memory_context: str
     # 中文说明：这是一个可选的界面通知函数，只把当前小节正在做什么告诉外层，
     # 不参与正文生成，也不会改变循环里的数据。
     progress_callback: Any
@@ -103,6 +105,7 @@ class WritingAgent(BaseAgent):
         session_read_results: list[JsonObject] | None = None,
         available_paper_ids: list[str] | None = None,
         progress_callback: Any | None = None,
+        memory_context: str = "",
     ) -> JsonObject:
         """写作单个小节，并返回正文、引用和审查结果。
 
@@ -136,6 +139,7 @@ class WritingAgent(BaseAgent):
             "review": {},
             "completed": False,
             "warnings": [],
+            "memory_context": str(memory_context or ""),
             "progress_callback": progress_callback,
         }
         final_state = await graph.ainvoke(initial_state)
@@ -168,6 +172,7 @@ class WritingAgent(BaseAgent):
         sections: list[JsonObject],
         word_count: int = 300,
         usage_callback: Any | None = None,
+        memory_context: str = "",
     ) -> tuple[str, str]:
         """根据已经完成的正文生成摘要。
 
@@ -181,7 +186,12 @@ class WritingAgent(BaseAgent):
 
         try:
             response = await self.context.llm.provider.chat(
-                _abstract_messages(topic=topic, sections=sections, word_count=word_count),
+                _abstract_messages(
+                    topic=topic,
+                    sections=sections,
+                    word_count=word_count,
+                    memory_context=memory_context,
+                ),
                 temperature=0.2,
                 reasoning_effort="medium",
             )
@@ -434,7 +444,7 @@ def get_extraction(
         if extraction is None:
             results.append({"paperId": paper_id, "status": "missing", "extraction": {}, "source": ""})
         else:
-            results.append({"paperId": paper_id, "status": "ok", "extraction": extraction, "source": source})
+            results.append({"paperId": paper_id, "status": "ok", "extraction": compact_extraction_for_context(extraction), "source": source})
     return results
 
 
@@ -695,6 +705,7 @@ def _write_messages(state: SectionLoopState) -> list[JsonObject]:
     user_prompt = json.dumps(
         {
             "section_id": state.get("section_id"),
+            "写作约束与记忆": state.get("memory_context") or "",
             "小节任务": state.get("task"),
             "计划字数": state.get("word_count"),
             "全局分析提供的证据": state.get("evidence_map") or [],
@@ -715,7 +726,7 @@ def _write_messages(state: SectionLoopState) -> list[JsonObject]:
     return [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
 
 
-def _abstract_messages(*, topic: str, sections: list[JsonObject], word_count: int) -> list[JsonObject]:
+def _abstract_messages(*, topic: str, sections: list[JsonObject], word_count: int, memory_context: str = "") -> list[JsonObject]:
     """构造摘要提示词，只把已经完成的小节正文交给模型。"""
 
     # 中文说明：摘要只读取已完成的小节正文，系统提示词不在这里重复维护。
@@ -729,7 +740,12 @@ def _abstract_messages(*, topic: str, sections: list[JsonObject], word_count: in
         if isinstance(section, dict) and str(section.get("content") or "").strip()
     ]
     user_prompt = json.dumps(
-        {"用户主题": topic, "摘要建议字数": max(100, int(word_count or 300)), "已完成正文": body},
+        {
+            "用户主题": topic,
+            "写作约束与记忆": str(memory_context or ""),
+            "摘要建议字数": max(100, int(word_count or 300)),
+            "已完成正文": body,
+        },
         ensure_ascii=False,
         indent=2,
     )

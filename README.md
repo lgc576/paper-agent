@@ -1,276 +1,209 @@
 <div align="center">
 
-# Paper-Agent · 智能论文检索与综述写作工作台
+# ReviewCraft
 
-**输入一个研究主题 → 收获一份可全程追踪的领域综述**
+**按你的写作风格，快速完成领域调研与文献综述。**
 
-[![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![Vue](https://img.shields.io/badge/Frontend-Vue_3-42B883?logo=vuedotjs&logoColor=white)](https://vuejs.org/)
-[![LangGraph](https://img.shields.io/badge/Workflow-LangGraph-1C3C3C?logo=langchain&logoColor=white)](https://langchain-ai.github.io/langgraph/)
-[![uv](https://img.shields.io/badge/Package%20Manager-uv-DE5FE9?logo=astral&logoColor=white)](https://docs.astral.sh/uv/)
+输入研究主题和写作要求，ReviewCraft 会根据已配置模型快速检索海量文献，精准锁定领域内关键论文，并按用户需要的表达风格生成调研结果与文献综述。检索、阅读、分析、写作、引用与 token 使用情况都会保存在同一个会话中，方便回看和继续修改。
+
+[![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/API-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Vue](https://img.shields.io/badge/Frontend-Vue_3-42B883?style=flat-square&logo=vuedotjs&logoColor=white)](https://vuejs.org/)
+[![LangGraph](https://img.shields.io/badge/Workflow-LangGraph-1C3C3C?style=flat-square)](https://langchain-ai.github.io/langgraph/)
+[![uv](https://img.shields.io/badge/Package-uv-DE5FE9?style=flat-square)](https://docs.astral.sh/uv/)
 
 </div>
 
----
-
-## 🆕 2.0 版本更新
-
-Paper-Agent 2.0 是相对旧版 1.x 的一次**全新重写**。它保留了旧版「检索 → 阅读 → 分析 → 写作」的多智能体核心思路，但在工程实现上做了全面升级：
-
-- **前端**改为 Vue 3 + TypeScript + Vite，交互更现代、响应更快；
-- **包管理**统一使用 `uv`，一条命令即可完成 Python 依赖安装；
-- **论文来源**从单一 arXiv 扩展到 arXiv、OpenAlex、Semantic Scholar 三源检索；
-- **会话持久化**改用 SQLite + 文件系统，浏览器刷新后历史线程不丢失；
-- **实时进度**基于 SSE 推送到工作台，从检索到写作每一步都可观察。
-
-
----
-
-## 👀 界面概览
-
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/a88a2823-9724-4a7a-aee4-fafbfef068a6" width="720" alt="Paper-Agent 会话工作台" />
+  <img src="assets/readme/workspace-home.png" alt="ReviewCraft 会话工作台首页" width="100%">
   <br>
-  <em>输入研究主题，实时追踪检索 → 阅读 → 分析 → 大纲 → 写作全流程进度</em>
+  <em>图 1：在会话工作台输入研究主题，并配置年份、来源、结果数量和精读篇数。</em>
 </p>
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/e312fc8b-d84e-46f5-86df-5202d2197dfe" width="720" alt="Paper-Agent 系统设置" />
-  <br>
-  <em>在浏览器中可视化配置模型 Provider 与 Agent 档位，一键测试连通性</em>
+  <a href="#reviewcraft-是什么"><strong>项目介绍</strong></a> &middot;
+  <a href="#核心特色"><strong>核心特色</strong></a> &middot;
+  <a href="#评估指标"><strong>评估指标</strong></a> &middot;
+  <a href="#快速开始"><strong>快速开始</strong></a>
 </p>
 
 ---
 
-## 🎯 为什么是 Paper-Agent？
+## ReviewCraft 是什么
 
-做学术调研时，你一定经历过这些：
+ReviewCraft 是一个面向文献综述场景的本地科研 Agent 系统。它把一次调研拆成清晰流程：生成检索计划，多来源检索论文，筛选摘要与全文，提取关键证据，组织大纲，最后按证据和用户风格写作。
 
-| 场景 | 传统方式 | **Paper-Agent** |
-|------|---------|-----------------|
-| 初步了解陌生研究方向 | 手动搜索多个来源，逐个打开论文判断相关度，**耗时费力** | 从 arXiv / OpenAlex / Semantic Scholar 自动检索，按主题和约束去重、筛选、整理 |
-| 论文阅读与资料积累 | 读完一篇记一篇笔记，资料散落在各处，**容易丢失和重复** | 先读摘要判断相关性，再按条件下载全文、解析、切分，建立本地可检索资料 |
-| 撰写领域综述 | 边读边写，反复调整结构，**常常写到一半推倒重来** | 从子主题分析和全局分析生成结构化大纲，再逐节按证据写作 |
-| 管理长流程任务 | 每跑一步都担心进度、状态和重启后丢失，**不敢中途停下** | 会话、运行状态、阶段产物和实时进度都在工作台可见，可随时保存与恢复 |
-| 控制模型成本 | 全程用一个模型档位，**不清楚每个环节花了多少 token** | 不同阶段使用不同模型档位，并展示实际 token 用量 |
+当前版本重点强化三项能力：
 
-> **Paper-Agent 不只是论文摘要工具，而是一个完整的 AI 研究助理——它找得到论文、读得懂全文、理得清脉络、写得出综述。**
+- **Self-RELOOP 检索修正**：第一次 retrieval 判 FAIL 时，根据失败原因改写 query 并重新检索。
+- **OpenScholar 风格评估**：用 rubric correctness、citation precision/F1、coverage、relevance、organization 和 cost 衡量综述质量。
+- **长期记忆与上下文压缩**：跨 session 记住用户写作规则和对话规范，同时压缩论文 JSON 字段，降低长上下文与 API 503 风险。
 
----
+<p align="center">
+  <img src="assets/readme/workflow-progress.png" alt="ReviewCraft 任务执行流程" width="100%">
+  <br>
+  <em>图 2：任务结束后仍可查看检索、阅读、分析、写作和 token 使用情况。</em>
+</p>
 
-## ✨ 核心特性
+## 核心特色
 
-| | 特性 | 一句话说明 |
-|--|------|-----------|
-| 🔍 | **多来源论文检索** | 内置 arXiv、OpenAlex、Semantic Scholar 连接器，统一为 `PaperDocument`，按年份、来源、数量和排除词筛选并去重评分 |
-| 📖 | **从摘要到全文的渐进式阅读** | 先读摘要判断相关性，满足条件的论文走下载 → PDF 转 Markdown → 分块 → 抽取 → 写入本地向量库；依赖不可用时保存恢复现场 |
-| 🔬 | **分层研究分析** | `AnalyseAgent` 先按子主题逐篇分析，再做全局综合，形成研究现状、共识、争议、空白、时间演化与展望等结构化内容 |
-| ✍️ | **证据约束下的综述写作** | `WritingOutlineAgent` 生成大纲与证据映射，`WritingAgent` 逐节写作、证据不足时检索补充、完成后审查并限次修改 |
-| 📡 | **实时会话工作台** | SSE 实时推送检索、阅读、分析、大纲与逐节写作进度，SQLite + 文件系统持久化，刷新后历史可恢复 |
-| 🎛️ | **可视化模型配置** | 在浏览器中管理 Provider 协议、API 地址、密钥与三个 Agent 档位、embedding 参数，一键测试连通性，保存即生效 |
+| 能力 | 说明 |
+| --- | --- |
+| 多智能体调研流程 | `SearchAgent` 生成检索计划，`ReadAgent` 精读论文，`AnalyseAgent` 汇总研究现状，`WritingOutlineAgent` 组织大纲，`WritingAgent` 按证据写作。 |
+| 多来源论文检索 | 支持 arXiv、OpenAlex、Semantic Scholar，并统一为 `PaperDocument` 进入排序、去重、阅读和引用检查流程。 |
+| Self-RELOOP | 记录首轮检索失败原因，例如结果太少、主题偏移或证据不足；改写 query 后再次检索，并用修正成功率和相关性增益评估效果。 |
+| 长期记忆 | `src/services/memory.py` 以轻量规则保存用户偏好、对话规则、风格规范和最近任务摘要。 |
+| 上下文压缩 | 只把当前请求、写作规则、关键证据和短摘要交给后续 Agent，避免把全文片段和重复 JSON 全塞进上下文。 |
+| 前后端工作台 | FastAPI 提供 REST/SSE，本地 Vue 工作台展示会话、运行进度、产物和系统配置。 |
 
----
+## 评估指标
 
-## 🔧 工作流
+ReviewCraft 的评估参考 OpenScholar 的指标口径，重点检查综述是否正确、证据是否支撑结论、结构是否清楚，以及检索修正是否真的带来收益。
 
-```mermaid
-flowchart LR
-    U[研究主题] --> S[SearchAgent\n生成检索计划]
-    S --> R[多来源检索\narXiv / OpenAlex / Semantic Scholar]
-    R --> RA[ReadAgent\n摘要阅读与相关性判断]
-    RA --> FT[全文处理\n下载 / Markdown / 分块 / 向量索引]
-    FT --> A[AnalyseAgent\n子主题分析与全局分析]
-    A --> O[WritingOutlineAgent\n生成章节与证据映射]
-    O --> W[WritingAgent\n逐节写作与审查]
-    W --> P[会话产物\n综述正文与引用]
-    FT -. 依赖不可用 .-> C[保存恢复现场]
-    C -. 修复配置后继续 .-> RA
-```
+| 指标 | 定义 |
+| --- | --- |
+| Rubric Correctness | `Score = 0.6 * S_expert ingredients + 0.4 * S_general criteria`。专家要点衡量领域关键事实与方法是否正确，通用标准衡量回答是否满足题目要求。 |
+| Citation Precision / F1 | 检查每个需要引用文献的 scientific claim 是否有 citation；再检查给出的 citation 是否真的支持该 claim，以及该 citation 是否必要。 |
+| Coverage | LLM-as-Judge 判断综述是否覆盖关键方向、代表性论文、主要方法和重要发现。 |
+| Relevance | LLM-as-Judge 判断正文是否始终围绕用户主题，避免检索相关但写作跑题。 |
+| Organization | LLM-as-Judge 判断章节结构、段落顺序、论证链和过渡是否清楚。 |
+| Cost | 统计输入 token、输出 token 和总 token，用于比较不同模型与流程配置的成本。 |
+| Correction Success Rate | 在第一次 retrieval 判 FAIL 的 query 中，统计经过 Self-RELOOP 后转为 PASS 的比例。 |
+| Relevance Gain | 对比修正前后的 reader relevance score，直接计算相关性提升幅度。 |
 
----
+## 记忆与上下文压缩
 
-## 📦 技术栈
+生成综述前，多 Agent 流程会注入与当前任务相关的长期记忆：用户跨 session 留下的对话规则、写作规范、偏好和风格约束。当前会话里的角色、语气、格式要求只约束本轮写作，不写入长期记忆。
+
+论文检索和精读阶段会产生大量摘要、方法、实验结果和局限信息。ReviewCraft 只把当前请求、写作规则、短摘要和关键证据交给后续 Agent，减少重复上下文，降低长上下文带来的失败风险。
+
+## 技术栈
 
 | 层级 | 技术选型 |
-|------|---------|
+| --- | --- |
 | 运行时 | Python 3.12+、`uv`、Uvicorn |
-| 后端 API | FastAPI、REST、Server-Sent Events（SSE） |
+| 后端 API | FastAPI、REST、Server-Sent Events |
 | 工作流 | LangGraph、TypedDict 共享状态 |
 | Agent | Search、Read、Analyse、Writing Outline、Writing |
 | LLM 适配 | OpenAI 兼容协议、Anthropic Messages 协议 |
 | 论文来源 | arXiv、OpenAlex、Semantic Scholar |
-| 全文处理 | `pypdf`、Markdown 转换、文本分块 |
-| 向量检索 | ChromaDB |
-| 会话存储 | SQLite + 本地 JSON/Markdown/向量文件 |
+| 全文处理 | `pypdf`、文本清洗、文本分块 |
+| 向量检索 | ChromaDB + OpenAI-compatible embedding |
+| 会话存储 | SQLite + 本地 JSON / Markdown / 向量数据 |
 | 前端 | Vue 3、TypeScript、Vite、Vue Router、Lucide |
 
----
-
-## 📂 项目目录
+## 项目结构
 
 ```text
-Paper-Agent/
+paper-agent-main/
 ├── main.py                         # FastAPI 本地启动入口
-├── pyproject.toml                  # Python 项目元数据与依赖
-├── package.json                    # 根目录前端快捷命令
+├── graph.py                        # 工作流兼容入口
+├── pyproject.toml                  # Python 依赖
+├── package.json                    # 前端快捷命令
+├── assets/
+│   └── readme/                     # README 图 1 和图 2
 ├── config/
-│   ├── model.json                  # 本地模型配置，不提交
-│   ├── settings.example.json       # 模型配置示例
-│   └── system.yaml                 # 系统默认参数
+│   ├── model.example.json          # 模型配置示例
+│   ├── model.json                  # 本地模型配置
+│   └── system.yaml                 # 默认 token、embedding 和检索参数
+├── data/
+│   ├── memory/                     # 跨 session 用户记忆
+│   ├── paper_cache/                # 论文全文缓存
+│   ├── sessions/                   # 会话产物
+│   └── session_store.db            # 本地会话数据库
 ├── front/                          # Vue 3 + TypeScript 前端
 │   ├── src/api/                    # 会话与设置 API 客户端
 │   ├── src/components/             # 工作台、状态和会话组件
-│   ├── src/views/                  # 会话工作台、系统设置页
-│   └── vite.config.ts              # 开发服务器、代理和端口配置
+│   └── src/views/                  # 会话工作台与系统设置页
+├── scripts/
+│   └── local_embedding_server.py   # 本地 OpenAI-compatible embedding 服务
 ├── src/
-│   ├── agents/                     # Agent 定义、模型调用和写作工具
+│   ├── agents/                     # 各节点 Agent 与 prompts
 │   ├── api/                        # FastAPI 应用与路由
-│   ├── graph/                      # LangGraph 主流程和各阶段节点
-│   ├── llm/                        # Provider 适配、配置解析和统一响应
-│   ├── models/                     # 会话、协议和阅读领域模型
+│   ├── graph/                      # LangGraph 主流程和阶段节点
+│   ├── llm/                        # Provider 适配与统一响应
+│   ├── models/                     # 会话、协议和阅读模型
 │   ├── paper_retrieval/            # 论文模型、检索服务和来源连接器
-│   ├── repositories/               # SQLite、JSON、Chroma 与阶段产物持久化
-│   ├── services/                   # 会话、运行、设置和工作流服务
+│   ├── repositories/               # SQLite、JSON、Chroma 持久化
+│   ├── services/                   # 会话、运行、设置、记忆和工作流服务
 │   └── utils/                      # 日志、缓存、全文解析和分块工具
-├── data/                           # 本地数据库、论文缓存、会话和向量数据
-├── logs/                           # 运行日志
 └── test/                           # unittest 测试与联调辅助代码
 ```
 
----
+## 快速开始
 
-## 🚀 快速开始
+ReviewCraft 需要一个 embedding 模型用于论文向量化和相关性检索。项目内置的本地服务使用 `Qwen/Qwen3-Embedding-0.6B`，原生维度为 `1024`；OpenAI-compatible 请求可传 `dimensions`，本地服务支持 `1-1024` 的截断维度，默认建议使用 `1024` 或配置里的 `null`。
 
-### 1. 安装项目依赖
-
-在项目根目录执行：
+### 1. 安装依赖
 
 ```powershell
-uv init
 uv venv --python 3.12
 uv sync
 npm run front:install
 ```
 
-如果你已经有可用的 Python 3.12 虚拟环境，也可以直接执行 `uv sync` 和 `npm run front:install`。
+### 2. 配置模型
 
-### 2. 创建本地模型配置
-
-推荐通过 Web 工作台的「系统设置」页面修改和测试配置。也可以手动拷贝 `config/model.example.json` 为 `config/model.json`，至少确认：
-
-1. `providers` 中存在一个可用 Provider，并填写 `api_base`；
-2. `api_key` 或 `api_key_env` 能提供有效密钥；
-3. `agents.default_agent` 已配置；
-4. `embedding_profiles.default_embedding` 已指向可用的 embedding Provider。
-
-### 3. 启动后端
+复制示例配置后，在 Web 工作台「系统配置」页面填写并测试模型：
 
 ```powershell
+Copy-Item config/model.example.json config/model.json
+```
+
+至少确认：
+
+- `providers` 中有可用的聊天模型 Provider。
+- `agents.default_agent`、`agents.luna_agent`、`agents.solar_agent` 已指向可用模型。
+- `embedding_profiles.default_embedding` 已指向可用 embedding Provider。
+- 使用本地 embedding 服务时，embedding Provider 的 `api_base` 指向 `http://127.0.0.1:8001/v1`。
+
+### 3. 启动服务
+
+需要开三个终端窗口。
+
+终端 1：启动本地 embedding 服务。
+
+```powershell
+cd your project
+.\.embedding-venv\Scripts\python.exe scripts\local_embedding_server.py --host 127.0.0.1 --port 8001
+```
+
+终端 2：启动后端。
+
+```powershell
+cd your project
 uv run python main.py
 ```
 
-后端默认监听 `127.0.0.1:8000`，开发模式自动重载。API 文档：<http://127.0.0.1:8000/docs>
+后端默认监听 `127.0.0.1:8000`，API 文档见 <http://127.0.0.1:8000/docs>。
 
-### 4. 启动前端
+终端 3：启动前端。
 
 ```powershell
+cd your project
 npm run front:dev
 ```
 
-打开 <http://127.0.0.1:5173/>，先进入「模型设置」测试模型，再进入会话工作台创建研究任务。
+打开 <http://127.0.0.1:5173/>，先进入「系统配置」测试模型，再回到会话工作台创建调研任务。
 
-前端默认只监听本机，并代理 `/api`、`/webui` 请求到 `127.0.0.1:8000`。如需局域网其他设备访问：
+## 模型配置
 
-```powershell
-npm run front:dev:network
-```
-
----
-
-## 🔧 模型配置
-
-系统支持多模型 Provider 配置，每个 Agent 可独立指定模型档位：
-
-- 配置主文件：`config/model.json`（含密钥，不入库），示例见 `config/settings.example.json`，系统参数见 `config/system.yaml`
+每个 Agent 可以使用不同模型档位：
 
 | Agent | 默认档位 | 主要职责 |
 | --- | --- | --- |
-| `SearchAgent` | `luna_agent` | 从研究主题生成关键词、子主题和检索约束 |
+| `SearchAgent` | `luna_agent` | 生成关键词、子主题和检索约束 |
 | `ReadAgent` | `default_agent` | 阅读摘要，判断相关性并整理笔记 |
-| `AnalyseAgent` | `solar_agent` | 分析子主题，并综合研究现状与趋势 |
+| `AnalyseAgent` | `solar_agent` | 分析子主题，综合研究现状与趋势 |
 | `WritingOutlineAgent` | `default_agent` | 生成正文大纲和证据映射 |
 | `WritingAgent` | `default_agent` | 逐节写作、调用资料工具和审查修改 |
 
-没有配置 `luna_agent` / `solar_agent` 时回退到必需的 `default_agent`；`default_agent` 缺失时配置无法工作。
-
-### Provider 后端
-
-支持 `backend` 类型：`openai`、`openai_compat`、`anthropic`、`anthropic_compat`。示例：
-
-```json
-{
-  "providers": {
-    "my_provider": {
-      "backend": "openai_compat",
-      "api_key_env": "OPENAI_API_KEY",
-      "api_base": "https://api.openai.com/v1",
-      "extra_headers": {},
-      "extra_body": {}
-    }
-  }
-}
-```
-
-`api_key` 与 `api_key_env` 二选一即可。使用兼容网关时通常需要同时填写 `backend`、`api_base` 和模型名称。
-
-### 系统参数
-
-`config/system.yaml` 主要影响阅读节点：缓存目录、连接/下载超时、最大文件大小、文本分块、向量库路径与集合名等参数均可在此调整。
-
----
-
-## 💬 交流社群
-
-加入 Paper-Agent 用户交流群，获取最新动态、使用技巧与技术讨论：
-
-<p align="center">
-  <img src="assets/paper-agent-QQ.jpg" width="280" alt="QQ 交流群二维码" />
-  <br>
-  <em>（QQ 群号：340020097）</em>
-</p>
-
----
-
-## ❤️ 特别致谢
-
-感谢 **@GreatZack** 对 Paper-Agent 的持续投入与核心贡献：
-
-<p align="center">
-  <a href="https://github.com/GreatZack">
-    <img src="https://github.com/GreatZack.png" width="80" height="80" style="border-radius:50%" alt="GreatZack" />
-  </a>
-  <br>
-  <strong><a href="https://github.com/GreatZack">@GreatZack</a></strong>
-</p>
-
----
-
-## 🤝 参与贡献
-
-欢迎提交 Issue 和 Pull Request。建议贡献前先完成：
-
-1. 在 `test/` 中补充或更新对应行为的测试；
-2. 运行 `uv run python -m unittest discover -s test -v`；
-3. 运行 `npm run front:build`，确保前端类型检查和构建通过；
-4. 在 PR 描述中说明改动范围、配置影响和复现步骤。
-
-项目地址：<https://github.com/Tswoen/Paper-Agent>
+支持的 Provider 后端包括 `openai`、`openai_compat`、`anthropic`、`anthropic_compat`。
 
 ---
 
 <div align="center">
 
-**让论文检索更快，让研究脉络更清楚。**
+**快速调研，按你的风格写综述。**
 
 </div>

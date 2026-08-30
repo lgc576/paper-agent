@@ -62,7 +62,16 @@ def _constraints_from_frame(frame: JsonObject) -> JsonObject:
     """从一次会话请求中取出约束；没有传约束时返回空字典。"""
 
     value = frame.get("constraints")
-    return dict(value) if isinstance(value, dict) else {}
+    constraints = dict(value) if isinstance(value, dict) else {}
+    memory_context = frame.get("memory_context")
+    if isinstance(memory_context, dict) and memory_context.get("prompt"):
+        # 中文说明：记忆只作为提示词背景使用，不改写用户本轮真正输入的主题。
+        constraints["memory_context"] = dict(memory_context)
+    writing_context = memory_context.get("current_writing_context") if isinstance(memory_context, dict) else None
+    if "current_writing_context" not in constraints and isinstance(writing_context, dict):
+        # 中文说明：这是从当前会话里读到的写作身份和语言风格，只给写作节点使用。
+        constraints["current_writing_context"] = dict(writing_context)
+    return constraints
 
 
 def _request_from_checkpoint(checkpoint: Any) -> ReviewRequest | None:

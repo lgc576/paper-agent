@@ -18,6 +18,7 @@ from src.llm import ProviderSnapshot, SystemConfig
 from src.models.sessions import utc_now
 from src.paper_retrieval.models import PaperDocument
 from src.repositories.sessions.base import SessionRepository
+from src.services.memory import writing_prompt_from_constraints
 from src.utils.read_utils.cache import safe_cache_name
 
 
@@ -39,6 +40,7 @@ def run_writing_node():
         request = state.get("request")
         if request is None:
             raise ValueError("写作节点缺少用户综述主题，无法继续生成正文")
+        memory_prompt = writing_prompt_from_constraints(dict(getattr(request, "constraints", {}) or {}))
         outline = dict(state.get("writing_outline") or {})
         if not outline:
             raise ValueError("写作节点缺少写作大纲，无法知道要写哪些小节")
@@ -119,6 +121,7 @@ def run_writing_node():
                 session_read_results=session_read_results,
                 available_paper_ids=available_paper_ids,
                 progress_callback=report_section_phase,
+                memory_context=memory_prompt,
             )
             section_result.update(
                 chapter_key=section_task["chapter_key"],
@@ -156,6 +159,7 @@ def run_writing_node():
             sections=written_sections,
             word_count=300,
             usage_callback=report_abstract_usage,
+            memory_context=memory_prompt,
         )
 
         # 中文说明：引用顺序以正文里 paperId 第一次出现的位置为准，

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { AlertCircle, LoaderCircle } from "lucide-vue-next";
 import { computed, onMounted, ref, watch } from "vue";
-import { RouterView, useRoute, useRouter } from "vue-router";
+import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
 
 import { createSession, deleteSession, listSessions } from "./api/sessions";
 import AppSidebar from "./components/AppSidebar.vue";
@@ -177,6 +177,14 @@ function handleError(error: unknown, title: string) {
       @remove-session="requestSessionRemoval"
     />
     <main class="app-main">
+      <header class="app-topbar" aria-label="顶部导航">
+        <nav class="app-topbar-nav">
+          <RouterLink to="/sessions">Research</RouterLink>
+          <RouterLink to="/settings">Config</RouterLink>
+          <button type="button">登录</button>
+          <button type="button">日间模式</button>
+        </nav>
+      </header>
       <RouterView v-slot="{ Component }">
         <component
           :is="Component"

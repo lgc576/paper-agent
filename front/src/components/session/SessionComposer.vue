@@ -30,9 +30,9 @@ const props = withDefaults(
   }>(),
   {
     variant: "default",
-    heading: "今天想探索什么研究方向？",
+    heading: "快速调研，按你的风格写综述",
     helperText: "",
-    placeholder: "输入研究主题或调研任务...",
+    placeholder: "例如：你是一位分子扩散领域的专家，需要用简洁直白、通顺严谨、学术规范的语言为我调研大语言模型在分子扩散领域的应用",
     rows: 1,
     cancellable: false,
     cancelling: false,
@@ -56,10 +56,10 @@ const constraintsExpanded = ref(false);
 const textareaElement = ref<HTMLTextAreaElement | null>(null);
 
 const quickTopics: TopicSuggestion[] = [
-  { label: "检索增强大模型智能体技术综述", prompt: "综述检索增强范式下大语言模型智能体的架构设计、工具调用、知识更新与评估方法，总结现存挑战" },
-  { label: "大模型赋能推荐系统研究综述", prompt: "综述大语言/多模态大模型在推荐系统中的应用，重点分析冷启动、序列建模、知识增强推荐方案与挑战" },
-  { label: "多模态检索增强智能体研究综述", prompt: "系统梳理多模态检索增强智能体的技术脉络、主流架构、关键瓶颈、评测方案与未来研究方向" },
-  { label: "大模型智能体外部知识获取机制综述", prompt: "系统调研检索增强作为智能体知识供给方案的各类技术路线、局限性与未来研究机遇" },
+  { label: "大模型检索增强综述", prompt: "调研大语言模型检索增强技术，梳理主流架构、代表论文、评测方法、现存问题，并用简洁严谨的综述风格写作" },
+  { label: "扩散模型生成综述", prompt: "调研扩散模型在图像、分子与科学生成中的应用，归纳关键方法、代表工作、技术瓶颈和未来研究方向" },
+  { label: "智能体工具调用综述", prompt: "调研大模型智能体的工具调用、任务规划和记忆机制，比较典型框架与评估方式，并按学术综述风格整理" },
+  { label: "大模型科学调研助手", prompt: "调研大模型用于自动文献检索、论文阅读和综述生成的研究进展，重点分析流程设计、可靠性和写作风格控制" },
 ];
 const hasConstraints = computed(() => {
   const value = props.constraints;
@@ -85,7 +85,7 @@ const sourceOptions = [
  * 也不需要把标题文案拆散写在父页面中，之后调整标题时仍只改一个地方。
  */
 const headingParts = computed(() => {
-  const emphasis = "研究方向";
+  const emphasis = "写综述";
   const emphasisIndex = props.heading.indexOf(emphasis);
   if (emphasisIndex < 0) {
     return { before: props.heading, emphasis: "", after: "" };
@@ -159,7 +159,6 @@ function onKeydown(event: KeyboardEvent) {
   <section class="session-composer-card" :data-variant="props.variant" :aria-busy="running || sending">
     <template v-if="isWelcomeVariant">
       <header class="session-welcome-heading">
-        <span class="session-welcome-badge"><Sparkles :size="15" />新建研究会话</span>
         <h2>
           {{ headingParts.before }}<strong v-if="headingParts.emphasis">{{ headingParts.emphasis }}</strong>{{ headingParts.after }}
         </h2>

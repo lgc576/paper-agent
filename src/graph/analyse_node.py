@@ -11,6 +11,7 @@ from src.graph.state_models import JsonObject, State
 from src.llm import ProviderSnapshot
 from src.models.sessions import utc_now
 from src.repositories.sessions.base import SessionRepository
+from src.utils.read_utils.extraction import compact_extraction_for_context
 
 
 # 综合分析采用独立的全域八部分结构，因此提升报告版本号。
@@ -294,7 +295,7 @@ def _paper_analysis_input(item: JsonObject) -> JsonObject:
             "status": relevance.get("status") or "",
         },
         "full_text_status": full_text.get("status") or "",
-        "extraction": _shorten_json(extraction, 1200),
+        "extraction": compact_extraction_for_context(extraction),
         "warnings": _shorten_list(item.get("warnings"), 5, 160),
     }
 

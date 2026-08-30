@@ -30,8 +30,10 @@ class SearchSubtopic:
 class SearchPlan:
     """保存模型生成的检索计划，避免把“子主题”和“关键词列表”拆散传递。"""
 
+    research_topic: str = ""
     keywords: list[str] = field(default_factory=list)
     subtopics: list[SearchSubtopic] = field(default_factory=list)
+    writing_context: JsonObject = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -89,6 +91,8 @@ class SearchAgent(BaseAgent):
         search_halted = plan is None
         return {
             "search_intent": intent,
+            "research_topic": plan.research_topic if plan else str(getattr(state["request"], "topic", "")).strip(),
+            "writing_context": dict(plan.writing_context) if plan else {},
             "search_halted": search_halted,
             "diagnostics": {
                 **diagnostics,
@@ -105,6 +109,8 @@ class SearchAgent(BaseAgent):
         search_halted = plan is None
         return {
             "search_intent": intent,
+            "research_topic": plan.research_topic if plan else str(getattr(state["request"], "topic", "")).strip(),
+            "writing_context": dict(plan.writing_context) if plan else {},
             "search_halted": search_halted,
             "diagnostics": {
                 **diagnostics,
@@ -219,7 +225,7 @@ class SearchAgent(BaseAgent):
         user_prompt = json.dumps(
             {
                 "topic": getattr(request, "topic", ""),
-                "task": "请根据 topic 拆分研究方向，并为每个方向生成英文检索关键词表达式。",
+                "task": "请从 topic 中解析真正的研究主题、可选写作身份、可选写作风格，并根据研究主题拆分检索方向。",
             },
             ensure_ascii=False,
         )
@@ -244,13 +250,15 @@ class SearchAgent(BaseAgent):
             return None
         subtopics = self._parse_subtopics(data.get("subtopics"))
         keywords = self._clean_string_list(data.get("keywords"))
+        research_topic = str(data.get("research_topic") or data.get("topic") or "").strip()
+        writing_context = self._parse_writing_context(data.get("writing_context"))
         if not subtopics and keywords:
             subtopics = [SearchSubtopic(subtopic="综合检索", keyword=self._keyword_expression_from_terms(keywords))]
         if not subtopics:
             return None
         if not keywords:
             keywords = self._keywords_from_subtopics(subtopics)
-        return SearchPlan(keywords=keywords, subtopics=subtopics)
+        return SearchPlan(research_topic=research_topic, keywords=keywords, subtopics=subtopics, writing_context=writing_context)
 
     def _build_search_intent(self, state: JsonObject, plan: SearchPlan) -> SearchIntent:
         """根据请求约束和 LLM 关键词构建稳定的检索意图。
@@ -261,7 +269,7 @@ class SearchAgent(BaseAgent):
 
         request = state["request"]
         constraints = dict(getattr(request, "constraints", {}) or {})
-        topic = str(getattr(request, "topic", "")).strip()
+        topic = str(plan.research_topic or getattr(request, "topic", "")).strip()
         return SearchIntent(
             topic=topic,
             keywords=list(plan.keywords),
@@ -288,6 +296,22 @@ class SearchAgent(BaseAgent):
                 continue
             subtopics.append(SearchSubtopic(subtopic=subtopic, keyword=keyword))
         return subtopics
+
+    def _parse_writing_context(self, value: Any) -> JsonObject:
+        """解析检索模型顺手识别出的写作身份和风格。"""
+
+        if not isinstance(value, dict):
+            return {}
+        role = str(value.get("role") or "").strip()
+        style = str(value.get("style") or "").strip()
+        if not role and not style:
+            return {}
+        context: JsonObject = {}
+        if role:
+            context["role"] = role[:160]
+        if style:
+            context["style"] = style[:220]
+        return context
 
     def _keywords_from_subtopics(self, subtopics: list[SearchSubtopic]) -> list[str]:
         """从子主题检索式里整理出旧字段 keywords 需要的关键词列表。"""

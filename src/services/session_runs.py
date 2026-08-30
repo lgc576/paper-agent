@@ -12,6 +12,7 @@ from src.graph.runtime import InlineWorkflowSyncPort, WorkflowCancellation, Work
 from src.graph.runtime_resources import WorkflowRuntimeResources
 from src.models.sessions import SessionRecord, utc_now
 from src.repositories.sessions.base import SessionRepository
+from src.services.memory import memory_context_for_record, record_turn_memory
 from src.services.sessions import AssistantMessageBuffer, MessageHandler, SessionError, invoke_message_handler_async
 from src.utils import get_logger, logging_context
 from src.utils.readable_id import create_readable_id
@@ -186,8 +187,9 @@ class SessionRunService:
     async def start_run(self, session_key: str, body: JsonObject | None = None) -> JsonObject:
         """创建一次新的后台运行，并立即返回 SSE 地址。"""
 
-        body = body or {}
+        body = copy.deepcopy(body or {})
         record = self.repo.get(session_key)
+        body["memory_context"] = memory_context_for_record(self.repo, record, str(body.get("content") or ""))
         checkpoint = body.get("read_resume_checkpoint")
         if _should_resume_from_last_checkpoint(body):
             # 中文注释：前端只需要告诉后端“继续当前会话”，不用把很大的恢复现场再传回来。
@@ -406,6 +408,8 @@ class SessionRunService:
                             "timestamp": utc_now(),
                         }
                     )
+                record = self.repo.get(session_key)
+                record_turn_memory(self.repo, record, content, assistant_buffer.content_text(), status="completed")
                 self._finalize_success(session_key, run_id, turn_id, assistant_buffer)
                 logger.info("后台 run 执行完成")
         except asyncio.CancelledError:
@@ -644,4 +648,3 @@ def encode_sse(event: JsonObject) -> str:
     lines.append(f"event: {event_name}")
     lines.append(f"data: {payload}")
     return "\n".join(lines) + "\n\n"
-

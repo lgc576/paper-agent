@@ -1,6 +1,3 @@
-"""会话仓储包。"""
+"""会话仓库包。"""
 
-from .base import SessionRepository
-from .sqlite import SQLiteSessionRepository
-
-__all__ = ["SessionRepository", "SQLiteSessionRepository"]
+__all__: list[str] = []
